@@ -1,0 +1,414 @@
+{
+  "version": "1.0.0",
+  "source": "ai_agent/seo_engine/scoring_rubric.md",
+  "categories": {
+    "technical": { "label": "Technical", "base": 100 },
+    "on_page": { "label": "On-Page", "base": 100 },
+    "content": { "label": "Content", "base": 100 },
+    "links": { "label": "Links", "base": 100 },
+    "schema": { "label": "Schema", "base": 100 },
+    "geo": { "label": "GEO", "base": 100 }
+  },
+  "items": [
+    {
+      "id": "tech.https",
+      "category": "technical",
+      "title": "HTTPS enabled",
+      "description": "Site serves over HTTPS with valid TLS certificate.",
+      "type": "binary",
+      "penalty": 50,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Request URL. Scheme must be https; status 200 without mixed-content warnings."
+    },
+    {
+      "id": "tech.robots",
+      "category": "technical",
+      "title": "robots.txt allows crawlers",
+      "description": "robots.txt does not block important paths.",
+      "type": "binary",
+      "penalty": 50,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Fetch /robots.txt; look for Disallow: / or UA-specific blocks on Googlebot/Bingbot."
+    },
+    {
+      "id": "tech.status",
+      "category": "technical",
+      "title": "Key pages return 2xx",
+      "description": "No 4xx or 5xx errors on crawled pages.",
+      "type": "binary",
+      "penalty": 30,
+      "max_total_penalty": 50,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Record HTTP status during crawl; any 4xx/5xx is a failure."
+    },
+    {
+      "id": "tech.sitemap",
+      "category": "technical",
+      "title": "Sitemap present and valid",
+      "description": "XML sitemap is discoverable (robots.txt or /sitemap.xml) and parses.",
+      "type": "binary",
+      "penalty": 15,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Check robots.txt for Sitemap: directive; fall back to /sitemap.xml. Parse XML."
+    },
+    {
+      "id": "tech.canonical",
+      "category": "technical",
+      "title": "Canonical tag",
+      "description": "Self-referencing canonical on every page.",
+      "type": "scaled",
+      "weight": 1.5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 if canonical present and self-references on all pages; 5 if partial; 0 if missing everywhere."
+    },
+    {
+      "id": "tech.viewport",
+      "category": "technical",
+      "title": "Viewport meta tag",
+      "description": "Mobile viewport meta present.",
+      "type": "binary",
+      "penalty": 10,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Look for <meta name='viewport' content='width=device-width...'> in head."
+    },
+    {
+      "id": "tech.charset",
+      "category": "technical",
+      "title": "Charset UTF-8",
+      "description": "Document declares UTF-8 encoding.",
+      "type": "binary",
+      "penalty": 5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Look for <meta charset='utf-8'> or equivalent."
+    },
+    {
+      "id": "tech.lang",
+      "category": "technical",
+      "title": "<html lang> attribute",
+      "description": "HTML element has a lang attribute.",
+      "type": "binary",
+      "penalty": 5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "Check root <html> tag for lang attribute."
+    },
+    {
+      "id": "tech.og",
+      "category": "technical",
+      "title": "Open Graph tags",
+      "description": "og:title, og:description, og:image, og:url present.",
+      "type": "scaled",
+      "weight": 1,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 if all four OG tags; 5 if partial; 0 if none."
+    },
+    {
+      "id": "tech.twitter",
+      "category": "technical",
+      "title": "Twitter Card",
+      "description": "twitter:card meta present.",
+      "type": "scaled",
+      "weight": 0.5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 if twitter:card present; 0 otherwise."
+    },
+    {
+      "id": "tech.mobile",
+      "category": "technical",
+      "title": "Mobile-friendly signals",
+      "description": "Viewport + responsive CSS clues.",
+      "type": "scaled",
+      "weight": 1,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "10 if viewport + responsive clues; 6 if viewport only; 0 if none."
+    },
+    {
+      "id": "tech.hreflang",
+      "category": "technical",
+      "title": "hreflang tags",
+      "description": "hreflang annotations for all target countries.",
+      "type": "scaled",
+      "weight": 2,
+      "conditional": "countries.length >= 2",
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 if full coverage of target countries; 5 if partial; 0 if missing."
+    },
+    {
+      "id": "tech.geo_targeting",
+      "category": "technical",
+      "title": "Geo-targeting strategy",
+      "description": "ccTLD / subfolder / subdomain strategy for international.",
+      "type": "scaled",
+      "weight": 1,
+      "conditional": "countries.length >= 1",
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 ccTLD or subfolder with hreflang; 7 subdomain; 0 no strategy."
+    },
+    {
+      "id": "tech.lang_matches_target",
+      "category": "technical",
+      "title": "html lang matches primary target locale",
+      "description": "e.g. en-GH when Ghana is the primary country.",
+      "type": "binary",
+      "penalty": 5,
+      "conditional": "countries.length >= 1",
+      "scoring_mode": "claude",
+      "how_to_evaluate": "Fail if lang attribute missing or mismatches primary country."
+    },
+
+    {
+      "id": "onpage.title_presence",
+      "category": "on_page",
+      "title": "<title> tag present",
+      "description": "Every page has a title tag.",
+      "type": "binary",
+      "penalty": 40,
+      "scoring_mode": "deterministic"
+    },
+    {
+      "id": "onpage.h1_presence",
+      "category": "on_page",
+      "title": "H1 present",
+      "description": "Every page has exactly one H1.",
+      "type": "binary",
+      "penalty": 30,
+      "scoring_mode": "deterministic"
+    },
+    {
+      "id": "onpage.title_quality",
+      "category": "on_page",
+      "title": "Title length and keyword",
+      "description": "50–60 chars with keyword near start.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "10 if 50–60 chars + keyword near start; 6 right length no keyword; 3 wrong length; 0 missing."
+    },
+    {
+      "id": "onpage.meta_description",
+      "category": "on_page",
+      "title": "Meta description",
+      "description": "150–160 chars with keyword + CTA.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "10 if 150–160 chars with keyword + CTA; 5 if present but wrong length; 0 if missing."
+    },
+    {
+      "id": "onpage.h1_keyword",
+      "category": "on_page",
+      "title": "H1 contains target keyword",
+      "description": "H1 contains or clearly relates to target keyword.",
+      "type": "scaled",
+      "weight": 1.5,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 yes; 5 partially relevant; 2 brand-only or irrelevant."
+    },
+    {
+      "id": "onpage.hierarchy",
+      "category": "on_page",
+      "title": "Heading hierarchy",
+      "description": "Clean H1 → H2 → H3 order with no skips.",
+      "type": "scaled",
+      "weight": 1,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 clean; 6 minor skip; 0 broken."
+    },
+    {
+      "id": "onpage.alt_coverage",
+      "category": "on_page",
+      "title": "Image alt text coverage",
+      "description": "Percent of images with descriptive alt attributes.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "100%=10; 75%=7; 50%=5; <50%=2; 0%=0."
+    },
+
+    {
+      "id": "content.direct_answer",
+      "category": "content",
+      "title": "Direct answer in first 200 words",
+      "description": "Clear Who/What/Why answer near the top.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 clear quotable answer; 5 partially answers; 0 no direct answer."
+    },
+    {
+      "id": "content.eeat",
+      "category": "content",
+      "title": "E-E-A-T signals",
+      "description": "Author bylines, About page, team, citations.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 all four signals; 5 About page only; 0 nothing."
+    },
+    {
+      "id": "content.faq",
+      "category": "content",
+      "title": "FAQ section",
+      "description": "Dedicated FAQ content, ideally with FAQPage schema.",
+      "type": "scaled",
+      "weight": 1.5,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "10 FAQ with schema; 6 FAQ without schema; 0 no FAQ."
+    },
+    {
+      "id": "content.depth",
+      "category": "content",
+      "title": "Content depth vs competitors",
+      "description": "Coverage and comprehensiveness relative to top 3 competitors.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 more comprehensive; 6 comparable; 3 thinner; 0 very thin."
+    },
+    {
+      "id": "content.keywords",
+      "category": "content",
+      "title": "Keyword presence",
+      "description": "Primary in title+H1+intro; secondary in H2s.",
+      "type": "scaled",
+      "weight": 1,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 full coverage; 5 partial; 0 absent."
+    },
+
+    {
+      "id": "links.internal",
+      "category": "links",
+      "title": "Internal links per page",
+      "description": "5+ relevant internal links per content page.",
+      "type": "scaled",
+      "weight": 2.5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "5+ = 10; 2–4 = 6; 1 = 3; 0 = 0."
+    },
+    {
+      "id": "links.anchor",
+      "category": "links",
+      "title": "Anchor text quality",
+      "description": "Descriptive anchor text, no generic 'click here'.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 descriptive; 3 generic; 0 none."
+    },
+    {
+      "id": "links.external",
+      "category": "links",
+      "title": "External authority links",
+      "description": "2+ links to authoritative sources.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "2+ = 10; 1 = 5; 0 = 0."
+    },
+    {
+      "id": "links.broken",
+      "category": "links",
+      "title": "Broken links",
+      "description": "No 4xx/5xx internal links.",
+      "type": "binary",
+      "penalty": 15,
+      "max_total_penalty": 30,
+      "scoring_mode": "deterministic"
+    },
+
+    {
+      "id": "schema.presence",
+      "category": "schema",
+      "title": "JSON-LD present",
+      "description": "Any JSON-LD structured data on the page.",
+      "type": "binary",
+      "penalty": 40,
+      "scoring_mode": "deterministic",
+      "negated": true
+    },
+    {
+      "id": "schema.page_types",
+      "category": "schema",
+      "title": "Page-appropriate schema types",
+      "description": "Schema matches what the page is (homepage, blog post, FAQ, etc.).",
+      "type": "scaled",
+      "weight": 3,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 all expected; 7 most; 4 homepage-only; 0 wrong types."
+    },
+    {
+      "id": "schema.missing",
+      "category": "schema",
+      "title": "Missing expected schema",
+      "description": "No expected schema types missing.",
+      "type": "scaled",
+      "weight": 2,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "10 none missing; 7 one missing; 4 two–three missing; 0 four+ missing."
+    },
+    {
+      "id": "schema.organization",
+      "category": "schema",
+      "title": "Organization schema",
+      "description": "Organization schema with name + url + logo + sameAs.",
+      "type": "scaled",
+      "weight": 1.5,
+      "scoring_mode": "deterministic",
+      "how_to_evaluate": "10 complete; 5 partial; 0 absent."
+    },
+
+    {
+      "id": "geo.direct_answer_potential",
+      "category": "geo",
+      "title": "Direct answer potential",
+      "description": "Quotable answer to a Who/What/Why query in the first 200 words.",
+      "type": "geo_quartile",
+      "weight": 25,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "25 clear quotable single-sentence answer; 15 buried past 200 words; 5 topic only, no answer; 0 no relevant answer."
+    },
+    {
+      "id": "geo.citation_readiness",
+      "category": "geo",
+      "title": "Citation readiness",
+      "description": "Claim-evidence blocks with numbers, dates, sources.",
+      "type": "geo_quartile",
+      "weight": 25,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "25 multiple claim-evidence blocks with specific numbers, dates, sources; 15 some claims with evidence; 5 claims but no numbers/sources; 0 purely promotional."
+    },
+    {
+      "id": "geo.information_gain",
+      "category": "geo",
+      "title": "Information gain",
+      "description": "Unique data or framework not found on top 5 competitors.",
+      "type": "geo_quartile",
+      "weight": 25,
+      "scoring_mode": "claude",
+      "how_to_evaluate": "25 unique data / first-hand / original framework; 15 some unique angles; 5 near-duplicate of competitors; 0 pure commodity content."
+    },
+    {
+      "id": "geo.structured_data_for_ai",
+      "category": "geo",
+      "title": "Structured data for AI",
+      "description": "Schema + llms.txt + E-E-A-T so AI can parse the page cleanly.",
+      "type": "geo_quartile",
+      "weight": 25,
+      "scoring_mode": "hybrid",
+      "how_to_evaluate": "25 schema + llms.txt + E-E-A-T all present; 15 partial; 5 minimal; 0 none."
+    }
+  ],
+  "weights": {
+    "site_seo_score": {
+      "from": ["technical", "on_page", "content", "links", "schema"],
+      "mode": "average"
+    },
+    "site_geo_score": {
+      "from": ["geo"],
+      "mode": "average"
+    },
+    "site_overall_score": {
+      "formula": "site_seo_score * 0.6 + site_geo_score * 0.4"
+    }
+  }
+}

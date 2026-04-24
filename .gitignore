@@ -1,0 +1,14 @@
+node_modules
+.nuxt
+.output
+.data
+.cache
+.env
+dist
+
+# Per-company audit artifacts — too large / semi-private
+data/
+!data/.gitkeep
+
+# macOS
+.DS_Store

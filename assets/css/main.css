@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-bg text-text font-sans;
+}
+
+.score-pill {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
+}
+.score-pill-good {
+  @apply bg-good/15 text-good;
+}
+.score-pill-warn {
+  @apply bg-warn/15 text-warn;
+}
+.score-pill-bad {
+  @apply bg-bad/15 text-bad;
+}
+
+.card {
+  @apply rounded-xl border border-border bg-surface p-5;
+}
