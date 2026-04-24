@@ -3,18 +3,42 @@ import type { Audit, AuditReport } from "~~/server/lib/report/schema";
 
 const route = useRoute();
 const id = computed(() => String(route.params.id));
+const jobId = computed(() =>
+  typeof route.query.job === "string" ? route.query.job : "",
+);
 
-const { data } = await useFetch<{
+const { data, refresh } = await useFetch<{
   audit: Audit;
   report: AuditReport | null;
   has_html_report: boolean;
 }>(() => `/api/audits/${id.value}`);
 
-function scoreClass(n: number | undefined) {
-  if (n === undefined) return "score-pill score-pill-bad";
-  if (n >= 70) return "score-pill score-pill-good";
-  if (n >= 40) return "score-pill score-pill-warn";
-  return "score-pill score-pill-bad";
+async function onJobDone() {
+  await refresh();
+  await navigateTo(`/audits/${id.value}`, { replace: true });
+}
+
+const rerunning = ref(false);
+async function rerunWithAi() {
+  if (rerunning.value || !data.value?.report) return;
+  rerunning.value = true;
+  try {
+    const res = await $fetch<{ job_id: string; audit_id: string }>(
+      "/api/audits",
+      {
+        method: "POST",
+        body: {
+          url: data.value.report.source_value,
+          countries: data.value.report.countries ?? [],
+          max_pages: 0,
+        },
+      },
+    );
+    await navigateTo(`/audits/${res.audit_id}?job=${res.job_id}`);
+  } catch (err) {
+    rerunning.value = false;
+    console.error("rerun failed:", err);
+  }
 }
 
 function formatDate(iso: string | undefined | null) {
@@ -25,6 +49,13 @@ function formatDate(iso: string | undefined | null) {
 const report = computed(() => data.value?.report);
 const audit = computed(() => data.value?.audit);
 const hasHtmlReport = computed(() => data.value?.has_html_report ?? false);
+const aiScoringStatus = computed(() => {
+  const r = data.value?.report as unknown as
+    | { ai_scoring_status?: string }
+    | null
+    | undefined;
+  return r?.ai_scoring_status ?? "complete";
+});
 
 function openForPrint() {
   if (!audit.value) return;
@@ -34,7 +65,6 @@ function openForPrint() {
     "noopener",
   );
 }
-
 function downloadHtml() {
   if (!audit.value) return;
   window.location.href = `/api/audits/${audit.value.id}/html?download=1`;
@@ -47,7 +77,10 @@ function downloadHtml() {
       <NuxtLink to="/" class="text-sm text-mute hover:text-text">← Dashboard</NuxtLink>
     </div>
 
-    <div v-if="report" class="mb-8 flex flex-wrap items-start justify-between gap-4">
+    <div
+      v-if="report"
+      class="mb-8 flex flex-wrap items-start justify-between gap-4"
+    >
       <div>
         <div class="mb-2 text-sm text-mute">{{ report.source_value }}</div>
         <h1 class="text-2xl font-bold">{{ report.site_name }}</h1>
@@ -65,7 +98,6 @@ function downloadHtml() {
       <div v-if="hasHtmlReport" class="flex gap-2">
         <button
           class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent/90"
-          title="Opens the full HTML report and triggers the browser print dialog (Save as PDF)"
           @click="openForPrint"
         >
           Download PDF
@@ -87,49 +119,82 @@ function downloadHtml() {
       </div>
     </div>
 
-    <div class="mb-8 grid grid-cols-3 gap-4">
-      <div class="card">
-        <div class="text-xs uppercase tracking-wide text-mute">Overall</div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-3xl font-bold">{{ report?.site_overall_score ?? "—" }}</span>
-          <span :class="scoreClass(report?.site_overall_score)">of 100</span>
-        </div>
-      </div>
-      <div class="card">
-        <div class="text-xs uppercase tracking-wide text-mute">SEO</div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-3xl font-bold">{{ report?.site_seo_score ?? "—" }}</span>
-          <span :class="scoreClass(report?.site_seo_score)">of 100</span>
-        </div>
-      </div>
-      <div class="card">
-        <div class="text-xs uppercase tracking-wide text-mute">GEO</div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-3xl font-bold">{{ report?.site_geo_score ?? "—" }}</span>
-          <span :class="scoreClass(report?.site_geo_score)">of 100</span>
-        </div>
-      </div>
+    <div v-if="jobId" class="mb-6">
+      <JobsJobProgress :job-id="jobId" @done="onJobDone" />
     </div>
 
-    <div v-if="report" class="card">
+    <div
+      v-if="aiScoringStatus === 'pending'"
+      class="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-warn"
+    >
+      <div>
+        AI scoring was skipped for this audit (Claude items: direct answer,
+        E-E-A-T, citation readiness, information gain, keyword tiers,
+        competitors, Trinity review). Re-run via the local Claude API
+        (<code>claude_local_api</code> on
+        <code>http://localhost:8765</code>) to populate them.
+      </div>
+      <button
+        class="shrink-0 rounded-lg border border-warn/60 bg-warn/20 px-3 py-1.5 text-xs font-semibold text-warn hover:bg-warn/30"
+        :disabled="rerunning"
+        @click="rerunWithAi"
+      >
+        {{ rerunning ? "Starting…" : "Re-run with AI" }}
+      </button>
+    </div>
+
+    <div v-if="report" class="grid grid-cols-3 gap-4">
+      <ReportScoreGauge label="Overall" :value="report.site_overall_score" />
+      <ReportScoreGauge label="SEO" :value="report.site_seo_score" />
+      <ReportScoreGauge label="GEO" :value="report.site_geo_score" />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportCategoryBars :averages="report.site_category_averages" />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportTrinityReview :trinity="report.trinity_review" />
+    </div>
+
+    <div v-if="report && report.top_actions && report.top_actions.length > 0" class="mt-6 card">
       <h2 class="mb-3 text-lg font-semibold">Top actions</h2>
-      <ol class="ml-5 list-decimal space-y-2 text-sm text-mute">
-        <li v-for="(a, i) in report.top_actions" :key="i" class="text-text">
-          {{ a }}
-        </li>
+      <ol class="ml-5 list-decimal space-y-2 text-sm text-text">
+        <li v-for="(a, i) in report.top_actions" :key="i">{{ a }}</li>
       </ol>
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportKeywordTiers
+        :tiers="report.keyword_tiers"
+        :competitors="report.competitors"
+      />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportGeoReadiness :geo="report.geo_readiness" />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportSkillSummary :summary="report.skill_based_summary" />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportTodoTable :items="report.todo_list as any" />
+    </div>
+
+    <div v-if="report && report.implementation_plan.length > 0" class="mt-6">
+      <ReportImplementationPlan :items="report.implementation_plan as any" />
+    </div>
+
+    <div v-if="report" class="mt-6">
+      <ReportPagesTable :pages="report.pages as any" />
     </div>
 
     <div v-else class="card text-mute">
       Report file not available for this audit yet.
     </div>
 
-    <div class="mt-6 rounded-lg border border-dashed border-border p-6 text-sm text-mute">
-      <p class="mb-2 text-text">Interactive report viewer and Q&amp;A chat are coming in later phases.</p>
-      <p>
-        Phase 1 ships the data layer and migration. The full interactive viewer
-        (gauges, TO-DO table, per-page drilldown, chat panel) lands in Phases 4–6.
-      </p>
-    </div>
+    <ChatWidget v-if="report" :audit-id="id" />
   </div>
 </template>
