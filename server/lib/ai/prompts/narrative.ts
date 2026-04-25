@@ -87,11 +87,34 @@ export async function generateNarrative(
     "Return ONLY the JSON object. No prose, no markdown fences.",
   ].join("\n");
 
+  // First attempt
   const text = await claudeText({
     prompt,
     system: SYSTEM,
     maxTurns: 1,
     timeoutMs: 180_000,
   });
-  return extractJson<Narrative>(text);
+  const first = extractJson<Narrative>(text);
+  if (first && first.trinity_review) return first;
+
+  // Retry with an explicit "JSON only" nudge — common failure mode is the
+  // model including a "Here is the JSON:" preamble or a trailing note.
+  console.warn(
+    "[narrative] first attempt didn't parse as JSON, retrying with stricter nudge",
+  );
+  const retryPrompt = [
+    prompt,
+    "",
+    "REMINDER: Your previous response was not parseable JSON.",
+    "Output ONLY the raw JSON object — start with { and end with }.",
+    "No preamble, no commentary, no markdown fences, no trailing notes.",
+  ].join("\n");
+
+  const retryText = await claudeText({
+    prompt: retryPrompt,
+    system: SYSTEM,
+    maxTurns: 1,
+    timeoutMs: 180_000,
+  });
+  return extractJson<Narrative>(retryText);
 }

@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { auditDir, companyDir, ensureDir, fileExists, listDirs, readJson, writeJson } from "./fs";
 import { Audit, AuditReport } from "../report/schema";
@@ -88,6 +89,14 @@ export async function listAudits(companySlug?: string): Promise<Audit[]> {
   }
   results.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return results;
+}
+
+export async function deleteAudit(
+  companySlug: string,
+  auditId: string,
+): Promise<void> {
+  const dir = auditDir(companySlug, auditId);
+  await rm(dir, { recursive: true, force: true });
 }
 
 export async function findAuditById(auditId: string): Promise<Audit | null> {

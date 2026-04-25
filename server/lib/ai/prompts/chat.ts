@@ -60,6 +60,7 @@ export type ChatTurn = {
 export async function streamChatReply(args: {
   report: AuditReport;
   history: ChatTurn[];
+  extraContext?: string;
   onDelta: (text: string) => void;
 }): Promise<string> {
   if (!(await isClaudeAvailable())) {
@@ -68,6 +69,10 @@ export async function streamChatReply(args: {
     args.onDelta(msg);
     return msg;
   }
+
+  const system = args.extraContext?.trim()
+    ? `${SYSTEM}\n\n# Additional context about this site\n\n${args.extraContext.trim()}`
+    : SYSTEM;
 
   const reportContext = renderReportContext(args.report);
   const conversation = args.history
@@ -88,7 +93,7 @@ export async function streamChatReply(args: {
   try {
     for await (const chunk of claudeStream({
       prompt,
-      system: SYSTEM,
+      system,
       maxTurns: 1,
       timeoutMs: 180_000,
     })) {

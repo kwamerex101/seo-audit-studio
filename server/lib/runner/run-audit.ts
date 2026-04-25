@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { discoverUrls } from "../crawler/sitemap";
 import { extractSignals } from "../crawler/extract";
-import { PoliteQueue, fetchUrl } from "../crawler/fetch-page";
+import { PoliteQueue, fetchUrl, sleep } from "../crawler/fetch-page";
 import type { PageSignals, SiteSignals } from "../crawler/types";
 import {
   scorePageDeterministic,
@@ -9,6 +9,11 @@ import {
 } from "../scorer/deterministic";
 import { aggregateSite } from "../scorer/aggregate";
 import { enhancePageWithClaude } from "../scorer/claude";
+import {
+  aggregateEeatSignals,
+  deriveGeoLabels,
+  deriveMissingSchema,
+} from "../scorer/geo-labels";
 import { isClaudeAvailable } from "../ai/client";
 import { generateNarrative } from "../ai/prompts/narrative";
 import { auditDir, ensureDir, writeJson } from "../storage/fs";
@@ -44,6 +49,7 @@ export type RunAuditInput = {
   auditId?: string;
   companyOverride?: { name: string; slug: string; id: string };
   onProgress?: (e: ProgressEvent) => void;
+  isCancelled?: () => boolean;
 };
 
 export type RunAuditResult = {
@@ -56,11 +62,22 @@ export type RunAuditResult = {
   ai_scoring_status: "pending" | "complete";
 };
 
+export class JobCancelledError extends Error {
+  constructor() {
+    super("Job cancelled by user");
+    this.name = "JobCancelledError";
+  }
+}
+
 export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
   const parsed = new URL(input.url);
   const origin = parsed.origin;
   const siteName = humanizeHost(parsed.hostname);
   const progress = input.onProgress ?? (() => {});
+  const isCancelled = input.isCancelled ?? (() => false);
+  const checkpoint = () => {
+    if (isCancelled()) throw new JobCancelledError();
+  };
 
   const company = await getOrCreateCompany({
     name: siteName,
@@ -156,6 +173,7 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
         }),
       ),
     );
+    checkpoint();
     progress({
       step: "score_deterministic",
       pct: 55,
@@ -164,9 +182,11 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 
     const claudeEnabled = await isClaudeAvailable();
     const aiPerPageResults: Array<Record<string, unknown>> = [];
+    const aiFailedUrls: string[] = [];
     if (claudeEnabled) {
       const n = pageResults.length;
       for (let i = 0; i < n; i += 1) {
+        checkpoint();
         const p = pageResults[i];
         const enhanced = await enhancePageWithClaude({
           page: p.signals,
@@ -175,19 +195,25 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
         });
         pageResults[i] = { ...p, score: enhanced.score };
         aiPerPageResults.push(enhanced.claude_item_results);
+        if (enhanced.failed) aiFailedUrls.push(p.signals.url);
         const pct = 55 + Math.round(((i + 1) / n) * 25);
+        const failedTag = aiFailedUrls.length
+          ? ` (${aiFailedUrls.length} failed)`
+          : "";
         progress({
           step: "score_claude",
           pct,
-          message: `AI-scored ${i + 1}/${n} page(s)`,
+          message: `AI-scored ${i + 1}/${n} page(s)${failedTag}`,
         });
+        // Throttle between pages so we don't burst the local Claude CLI.
+        if (i < n - 1) await sleep(300);
       }
     } else {
       progress({
         step: "score_claude",
         pct: 80,
         message:
-          "AI scoring skipped (claude_local_api not reachable on http://localhost:8765)",
+          "AI scoring skipped (no AI provider reachable: claude_local_api :8765 / cursor-api :7878)",
       });
     }
 
@@ -199,7 +225,12 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
       site,
       pages: pageResults,
       aggregates,
-      aiScoringStatus: claudeEnabled ? "complete" : "pending",
+      aiScoringStatus: claudeEnabled
+        ? aiFailedUrls.length === pageResults.length && pageResults.length > 0
+          ? "pending"
+          : "complete"
+        : "pending",
+      aiFailedUrls,
     });
 
     if (claudeEnabled) {
@@ -283,9 +314,18 @@ function buildReport(args: {
   }>;
   aggregates: ReturnType<typeof aggregateSite>;
   aiScoringStatus: "pending" | "complete";
+  aiFailedUrls: string[];
 }): AuditReport {
-  const { url, siteName, countries, site, pages, aggregates, aiScoringStatus } =
-    args;
+  const {
+    url,
+    siteName,
+    countries,
+    site,
+    pages,
+    aggregates,
+    aiScoringStatus,
+    aiFailedUrls,
+  } = args;
 
   const discoveredUrls = site.sitemap.urls;
   const allIssues = pages.flatMap((p) =>
@@ -346,16 +386,23 @@ function buildReport(args: {
       anyDirect = true;
     }
   }
+  const signals = pages.map((p) => p.signals);
+  const labels = deriveGeoLabels({
+    aiScoringStatus,
+    pages: pages.map((p) => p.score),
+    signals,
+    site,
+  });
   const geo_readiness = {
     llms_txt: site.llms_txt,
     structured_data: Array.from(jsonLdAll),
-    missing_schema: [] as string[],
+    missing_schema: deriveMissingSchema({ signals }),
     faq_section: anyFaq,
     direct_answer_potential: anyDirect,
-    citation_readiness: "pending_ai",
-    information_gain: "pending_ai",
-    brand_authority: "pending_ai",
-    eeat_signals: [] as string[],
+    citation_readiness: labels.citation_readiness,
+    information_gain: labels.information_gain,
+    brand_authority: labels.brand_authority,
+    eeat_signals: aggregateEeatSignals(signals),
   };
 
   const international = {
@@ -441,8 +488,9 @@ function buildReport(args: {
     todo_list,
     pages: pagesOut,
     implementation_plan,
-    // extra field allowed by .passthrough() schema
+    // extra fields allowed by .passthrough() schema
     ai_scoring_status: aiScoringStatus,
+    ai_failed_urls: aiFailedUrls,
   } as AuditReport;
 }
 

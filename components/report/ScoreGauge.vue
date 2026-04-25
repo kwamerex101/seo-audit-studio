@@ -11,9 +11,29 @@ const props = defineProps<{
 const canvas = ref<HTMLCanvasElement | null>(null);
 let chart: Chart | null = null;
 
-const clamped = computed(() =>
+const target = computed(() =>
   Math.max(0, Math.min(100, Math.round(props.value ?? 0))),
 );
+const animated = ref(0);
+const clamped = animated; // keep variable name compat with the canvas render code
+
+let raf: number | null = null;
+function animateTo(value: number) {
+  if (raf) cancelAnimationFrame(raf);
+  const start = animated.value;
+  const change = value - start;
+  if (change === 0) return;
+  const duration = 700; // ms
+  const t0 = performance.now();
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - t0) / duration);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - t, 3);
+    animated.value = Math.round(start + change * eased);
+    if (t < 1) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
 
 const color = computed(() => {
   const v = clamped.value;
@@ -53,9 +73,15 @@ function render() {
   });
 }
 
-onMounted(render);
+onMounted(() => {
+  render();
+  // Defer one frame so initial mount paints with 0 then animates up.
+  requestAnimationFrame(() => animateTo(target.value));
+});
+watch(target, (v) => animateTo(v));
 watch([clamped, color], render);
 onBeforeUnmount(() => {
+  if (raf) cancelAnimationFrame(raf);
   chart?.destroy();
   chart = null;
 });

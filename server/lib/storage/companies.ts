@@ -1,5 +1,6 @@
+import { rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { companiesFile, readJson, writeJson } from "./fs";
+import { companiesFile, companyDir, readJson, writeJson } from "./fs";
 import { Company } from "../report/schema";
 
 export async function listCompanies(): Promise<Company[]> {
@@ -45,4 +46,13 @@ export async function getOrCreateCompany(args: {
 export async function findCompany(slug: string): Promise<Company | null> {
   const all = await listCompanies();
   return all.find((c) => c.slug === slug) ?? null;
+}
+
+export async function deleteCompany(slug: string): Promise<void> {
+  // Remove the company entry from companies.json
+  const all = await listCompanies();
+  const remaining = all.filter((c) => c.slug !== slug);
+  await saveCompanies(remaining);
+  // Wipe its on-disk audit folder (audits, conversations, summaries, html)
+  await rm(companyDir(slug), { recursive: true, force: true });
 }

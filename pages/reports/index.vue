@@ -76,8 +76,12 @@ function scoreClass(n: number | undefined) {
   return "score-pill score-pill-bad";
 }
 
+import { formatDate as fmtDate, formatAbsolute } from "~/utils/date";
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString();
+  return fmtDate(iso);
+}
+function formatTitle(iso: string) {
+  return formatAbsolute(iso);
 }
 </script>
 
@@ -148,7 +152,9 @@ function formatDate(iso: string) {
             :key="r.id"
             class="border-b border-border/60 transition hover:bg-surface2/40"
           >
-            <td class="py-3">{{ formatDate(r.created_at) }}</td>
+            <td class="py-3 tabular-nums" :title="formatTitle(r.created_at)">
+              {{ formatDate(r.created_at) }}
+            </td>
             <td class="py-3">
               <NuxtLink
                 :to="`/companies/${r.company_slug}`"

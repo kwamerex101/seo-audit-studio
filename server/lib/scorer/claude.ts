@@ -31,6 +31,8 @@ export type ClaudeEnhancedScore = {
     string,
     { score: number; max_score: number; reasoning: string }
   >;
+  failed: boolean;
+  failure_reason?: string;
 };
 
 export async function enhancePageWithClaude(args: {
@@ -42,7 +44,7 @@ export async function enhancePageWithClaude(args: {
 
   const items = deterministic.score.pending_ai_items;
   if (items.length === 0) {
-    return { score: deterministic.score, claude_item_results: {} };
+    return { score: deterministic.score, claude_item_results: {}, failed: false };
   }
 
   let result: ClaudeScoreResult | null = null;
@@ -53,10 +55,23 @@ export async function enhancePageWithClaude(args: {
       itemsToScore: items,
     });
   } catch (err) {
-    console.warn("[claude] scoring failed:", err);
-    return { score: deterministic.score, claude_item_results: {} };
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[ai] page ${page.url} scoring failed: ${reason}`);
+    return {
+      score: deterministic.score,
+      claude_item_results: {},
+      failed: true,
+      failure_reason: reason,
+    };
   }
-  if (!result) return { score: deterministic.score, claude_item_results: {} };
+  if (!result) {
+    return {
+      score: deterministic.score,
+      claude_item_results: {},
+      failed: true,
+      failure_reason: "All AI providers exhausted",
+    };
+  }
 
   const byId = await getChecklistItemsById();
 
@@ -114,5 +129,6 @@ export async function enhancePageWithClaude(args: {
       pending_ai_items: [],
     },
     claude_item_results: result.items,
+    failed: false,
   };
 }

@@ -1,9 +1,18 @@
 <script setup lang="ts">
 const route = useRoute();
 const nav = [
-  { label: "Dashboard", to: "/" },
-  { label: "Reports", to: "/reports" },
-  { label: "New audit", to: "/new" },
+  { label: "Dashboard", to: "/", match: (p: string) => p === "/" },
+  {
+    label: "Reports",
+    to: "/reports",
+    // Reports lights up for /reports, /audits/<id>, and /companies/<slug>
+    match: (p: string) =>
+      p.startsWith("/reports") ||
+      p.startsWith("/audits") ||
+      p.startsWith("/companies"),
+  },
+  { label: "New audit", to: "/new", match: (p: string) => p.startsWith("/new") },
+  { label: "Settings", to: "/settings", match: (p: string) => p.startsWith("/settings") },
 ];
 </script>
 
@@ -28,9 +37,9 @@ const nav = [
           v-for="item in nav"
           :key="item.to"
           :to="item.to"
-          class="rounded-lg px-3 py-2 text-sm transition"
+          class="rounded-lg px-3 py-2 text-sm transition-colors"
           :class="
-            route.path === item.to
+            item.match(route.path)
               ? 'bg-surface2 text-text'
               : 'text-mute hover:bg-surface2/60 hover:text-text'
           "

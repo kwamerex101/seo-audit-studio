@@ -22,6 +22,14 @@ const rows = computed(() => [
   { key: "geo", label: "GEO", val: props.averages?.geo ?? 0 },
 ]);
 
+const mounted = ref(false);
+onMounted(() => {
+  // Defer one frame so the 0% start state paints, then bars animate to target.
+  requestAnimationFrame(() => {
+    mounted.value = true;
+  });
+});
+
 function colorFor(v: number) {
   if (v >= 70) return "bg-good";
   if (v >= 40) return "bg-warn";
@@ -37,11 +45,18 @@ function colorFor(v: number) {
         <div class="w-24 text-sm text-mute">{{ r.label }}</div>
         <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface2">
           <div
-            :class="['h-full rounded-full transition-all', colorFor(r.val)]"
-            :style="{ width: `${Math.max(0, Math.min(100, r.val))}%` }"
+            :class="[
+              'h-full rounded-full transition-[width] duration-700 ease-out',
+              colorFor(r.val),
+            ]"
+            :style="{
+              width: mounted
+                ? `${Math.max(0, Math.min(100, r.val))}%`
+                : '0%',
+            }"
           />
         </div>
-        <div class="w-10 text-right text-sm font-semibold">
+        <div class="w-10 text-right text-sm font-semibold tabular-nums">
           {{ Math.round(r.val) }}
         </div>
       </div>

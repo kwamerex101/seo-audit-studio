@@ -25,5 +25,158 @@ body {
 }
 
 .card {
-  @apply rounded-xl border border-border bg-surface p-5;
+  @apply rounded-xl border border-border bg-surface p-5 transition-all duration-200;
+}
+.card:hover {
+  @apply border-border/80;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.4);
+}
+
+.progress-fill {
+  background-image: linear-gradient(
+    90deg,
+    rgba(74, 222, 128, 0.85) 0%,
+    rgba(74, 222, 128, 1) 50%,
+    rgba(74, 222, 128, 0.85) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2.4s linear infinite;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.32s ease-out both;
+}
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row-stagger > * {
+  animation: row-stagger 0.28s ease-out both;
+}
+.row-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.row-stagger > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+.row-stagger > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+.row-stagger > *:nth-child(4) {
+  animation-delay: 90ms;
+}
+.row-stagger > *:nth-child(5) {
+  animation-delay: 120ms;
+}
+.row-stagger > *:nth-child(6) {
+  animation-delay: 150ms;
+}
+.row-stagger > *:nth-child(7) {
+  animation-delay: 180ms;
+}
+.row-stagger > *:nth-child(8) {
+  animation-delay: 210ms;
+}
+.row-stagger > *:nth-child(9) {
+  animation-delay: 240ms;
+}
+.row-stagger > *:nth-child(10) {
+  animation-delay: 270ms;
+}
+@keyframes row-stagger {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-panel-enter-active,
+.chat-panel-leave-active {
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease-out;
+}
+.chat-panel-enter-from,
+.chat-panel-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+
+.score-pill {
+  transition:
+    transform 0.16s ease-out,
+    background-color 0.18s ease-out;
+}
+.score-pill:hover {
+  transform: translateY(-1px);
+}
+
+.chat-md p {
+  margin: 0 0 8px;
+}
+.chat-md p:last-child {
+  margin-bottom: 0;
+}
+.chat-md .md-h {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 8px 0 4px;
+}
+.chat-md .md-list {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.chat-md .md-list li {
+  margin: 1px 0;
+}
+.chat-md .md-code {
+  background: rgba(110, 168, 255, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.chat-md .md-pre {
+  background: #0e1424;
+  border: 1px solid var(--tw-color-border, #24304a);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+.chat-md .md-link {
+  color: #6ea8ff;
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .fade-in-up,
+  .row-stagger > *,
+  .chat-panel-enter-active,
+  .chat-panel-leave-active {
+    animation: none !important;
+    transition: none !important;
+  }
 }
