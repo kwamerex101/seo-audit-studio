@@ -15,8 +15,12 @@ function scoreClass(n: number | undefined) {
   return "score-pill score-pill-bad";
 }
 
+import { formatDate as fmtDate, formatAbsolute } from "~/utils/date";
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString();
+  return fmtDate(iso);
+}
+function formatTitle(iso: string) {
+  return formatAbsolute(iso);
 }
 </script>
 
@@ -50,7 +54,9 @@ function formatDate(iso: string) {
           class="flex items-center justify-between rounded-lg border border-border bg-surface2/60 px-4 py-3"
         >
           <div>
-            <div class="text-sm">{{ formatDate(a.created_at) }}</div>
+            <div class="text-sm tabular-nums" :title="formatTitle(a.created_at)">
+              {{ formatDate(a.created_at) }}
+            </div>
             <div class="text-xs text-mute">
               {{ a.source_url }} · {{ a.pages_audited ?? 0 }} pages ·
               {{ a.origin }}

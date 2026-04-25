@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { findAuditById, getAuditReport } from "../../../lib/storage/audits";
 import {
   appendMessage,
   loadConversation,
 } from "../../../lib/storage/conversations";
+import { auditDir, readJson } from "../../../lib/storage/fs";
 import { streamChatReply } from "../../../lib/ai/prompts/chat";
 
 export default defineEventHandler(async (event) => {
@@ -23,6 +25,9 @@ export default defineEventHandler(async (event) => {
   if (!userText) throw createError({ statusCode: 400, message: "Empty message" });
 
   const conversation = await loadConversation(audit.company_slug, audit.id);
+  const contextFile = join(auditDir(audit.company_slug, audit.id), "context.json");
+  const contextData = await readJson<{ text: string }>(contextFile);
+  const extraContext = contextData?.text ?? "";
 
   const userMessage = {
     id: randomUUID(),
@@ -56,6 +61,7 @@ export default defineEventHandler(async (event) => {
     const finalText = await streamChatReply({
       report,
       history,
+      extraContext,
       onDelta: (chunk) => {
         send({ type: "delta", text: chunk });
       },
