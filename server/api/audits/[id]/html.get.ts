@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { findAuditById, getAuditReport } from "../../../lib/storage/audits";
 import { auditDir } from "../../../lib/storage/fs";
-import { renderExecHtml } from "../../../lib/report/exec-export";
+import { renderFullHtml } from "../../../lib/report/full-export";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
         : html + printSnippet;
     }
   } else {
-    // No pre-generated HTML — fall back to on-the-fly executive report.
+    // No pre-generated HTML — render the full report on-the-fly.
     const report = await getAuditReport(audit.company_slug, audit.id);
     if (!report) throw createError({ statusCode: 404, message: "Report not found" });
-    html = renderExecHtml(report, wantsPrint);
+    html = renderFullHtml(report, wantsPrint);
   }
 
   setHeader(event, "content-type", "text/html; charset=utf-8");
