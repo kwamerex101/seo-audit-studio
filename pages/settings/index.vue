@@ -1,8 +1,10 @@
 <script setup lang="ts">
-type AiProvider = "osaurus" | "claude" | "cursor";
+type AiProvider = "osaurus" | "claude_cli" | "claude" | "cursor";
+type ClaudeCliModel = "sonnet" | "opus" | "haiku" | "default";
 type AppSettings = {
   ai_provider_order: AiProvider[];
   ai_provider_enabled: Record<AiProvider, boolean>;
+  claude_cli_model: ClaudeCliModel;
 };
 
 const PROVIDER_META: Record<
@@ -15,9 +17,15 @@ const PROVIDER_META: Record<
     defaultUrl: "http://127.0.0.1:1337",
     envHint: "OSAURUS_API_URL · OSAURUS_API_KEY · OSAURUS_MODEL",
   },
+  claude_cli: {
+    name: "Claude CLI (direct)",
+    description: "Spawns the `claude` CLI directly as a subprocess. Uses your Claude Code subscription. Model is selectable below.",
+    defaultUrl: "subprocess: claude -p",
+    envHint: "CLAUDE_CLI_BIN (override path)",
+  },
   claude: {
     name: "claude_local_api",
-    description: "Wraps the Claude Code CLI subscription. High quality, no per-call cost.",
+    description: "HTTP wrapper around the Claude Code CLI. Use if you want to route through the local proxy.",
     defaultUrl: "http://localhost:8765",
     envHint: "CLAUDE_LOCAL_API_URL · CLAUDE_LOCAL_PROVIDER",
   },
@@ -29,13 +37,21 @@ const PROVIDER_META: Record<
   },
 };
 
+const CLAUDE_CLI_MODELS: { value: ClaudeCliModel; label: string; hint: string }[] = [
+  { value: "sonnet", label: "Sonnet", hint: "Balanced — fast + high quality (recommended)" },
+  { value: "opus", label: "Opus", hint: "Highest quality, slower, higher cost" },
+  { value: "haiku", label: "Haiku", hint: "Fastest, lighter quality" },
+  { value: "default", label: "Default", hint: "Let the CLI choose (currently sonnet)" },
+];
+
+const DEFAULT_SETTINGS: AppSettings = {
+  ai_provider_order: ["osaurus", "claude_cli", "claude", "cursor"],
+  ai_provider_enabled: { osaurus: true, claude_cli: true, claude: true, cursor: true },
+  claude_cli_model: "sonnet",
+};
+
 const { data, refresh } = await useFetch<{ settings: AppSettings }>("/api/settings");
-const settings = ref<AppSettings>(
-  data.value?.settings ?? {
-    ai_provider_order: ["osaurus", "claude", "cursor"],
-    ai_provider_enabled: { osaurus: true, claude: true, cursor: true },
-  },
-);
+const settings = ref<AppSettings>(data.value?.settings ?? DEFAULT_SETTINGS);
 
 const saving = ref(false);
 const saveMessage = ref<string | null>(null);
@@ -87,10 +103,15 @@ async function save() {
 
 async function resetDefaults() {
   settings.value = {
-    ai_provider_order: ["osaurus", "claude", "cursor"],
-    ai_provider_enabled: { osaurus: true, claude: true, cursor: true },
+    ai_provider_order: [...DEFAULT_SETTINGS.ai_provider_order],
+    ai_provider_enabled: { ...DEFAULT_SETTINGS.ai_provider_enabled },
+    claude_cli_model: DEFAULT_SETTINGS.claude_cli_model,
   };
   await save();
+}
+
+function setClaudeCliModel(m: ClaudeCliModel) {
+  settings.value = { ...settings.value, claude_cli_model: m };
 }
 </script>
 
@@ -168,6 +189,40 @@ async function resetDefaults() {
         </li>
       </ol>
 
+      <!-- Claude CLI model picker -->
+      <div class="mt-5 rounded-lg border border-border bg-surface2/40 p-4">
+        <div class="mb-2 flex items-center gap-2">
+          <span class="font-semibold text-sm">Claude CLI model</span>
+          <span
+            v-if="!settings.ai_provider_enabled.claude_cli"
+            class="rounded-full bg-bad/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-bad"
+          >
+            Provider disabled
+          </span>
+        </div>
+        <p class="mb-3 text-xs text-mute">
+          Used when the <span class="font-mono">Claude CLI (direct)</span> provider is active. The CLI spawns
+          <span class="font-mono">claude -p --model &lt;value&gt;</span> for each request.
+        </p>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button
+            v-for="m in CLAUDE_CLI_MODELS"
+            :key="m.value"
+            type="button"
+            class="rounded-lg border px-3 py-2 text-left text-xs transition-colors"
+            :class="
+              settings.claude_cli_model === m.value
+                ? 'border-accent bg-accent/10 text-text'
+                : 'border-border bg-surface text-mute hover:border-accent/40 hover:text-text'
+            "
+            @click="setClaudeCliModel(m.value)"
+          >
+            <div class="font-semibold text-sm">{{ m.label }}</div>
+            <div class="mt-0.5 text-[11px] leading-snug">{{ m.hint }}</div>
+          </button>
+        </div>
+      </div>
+
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <button
           class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent/90 disabled:opacity-50"
@@ -233,7 +288,8 @@ async function resetDefaults() {
               <li>An AI provider running locally — at least one of:
                 <ul class="ml-5 mt-1 list-disc">
                   <li><span class="font-mono">Osaurus</span> on <span class="font-mono">127.0.0.1:1337</span> (recommended, fully local)</li>
-                  <li><span class="font-mono">claude_local_api</span> on <span class="font-mono">localhost:8765</span> (Claude Code CLI)</li>
+                  <li><span class="font-mono">Claude CLI</span> installed and authenticated (<span class="font-mono">claude --version</span>) — invoked directly as a subprocess</li>
+                  <li><span class="font-mono">claude_local_api</span> on <span class="font-mono">localhost:8765</span> (optional HTTP wrapper)</li>
                   <li><span class="font-mono">cursor-api</span> on <span class="font-mono">localhost:7878</span> (Cursor Agent CLI)</li>
                 </ul>
               </li>

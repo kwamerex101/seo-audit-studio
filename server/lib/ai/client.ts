@@ -3,11 +3,16 @@
 // Primary:   Osaurus           — http://127.0.0.1:1337 (OpenAI-compatible, local)
 //            Docs: https://docs.osaurus.ai
 //
-// Fallback1: claude_local_api  — http://localhost:8765 (Claude Code CLI subscription)
+// Fallback1: claude_cli        — direct subprocess call to `claude` CLI
+//            Uses Claude Code subscription. Model selectable in settings.
+//
+// Fallback2: claude_local_api  — http://localhost:8765 (HTTP wrapper around Claude CLI)
 //            Project: /Users/rexdanquah/Projects/claude_local_api
 //
-// Fallback2: cursor-api        — http://localhost:7878 (OpenAI-compatible, Cursor Agent CLI)
+// Fallback3: cursor-api        — http://localhost:7878 (OpenAI-compatible, Cursor Agent CLI)
 //            Project: /Users/rexdanquah/Projects/cursor-api
+
+import { spawn } from "node:child_process";
 //
 // On a provider failure (timeout, 5xx, network), we retry with exponential backoff,
 // then fall through to the next provider. If all providers fail, callers get null
@@ -98,13 +103,224 @@ async function isCursorAvailable(): Promise<boolean> {
   return pingHealth(`${cursorBase()}/healthz`);
 }
 
+// --- Claude CLI (direct subprocess) ---
+
+const CLAUDE_CLI_BIN_DEFAULT = "claude";
+
+function claudeCliBin(): string {
+  return process.env.CLAUDE_CLI_BIN ?? CLAUDE_CLI_BIN_DEFAULT;
+}
+
+async function getClaudeCliModel(): Promise<string> {
+  try {
+    const { getSettings } = await import("../storage/settings");
+    const s = await getSettings();
+    return s.claude_cli_model && s.claude_cli_model !== "default" ? s.claude_cli_model : "sonnet";
+  } catch {
+    return process.env.CLAUDE_CLI_MODEL ?? "sonnet";
+  }
+}
+
+const claudeCliHealthCache = { at: 0, healthy: false };
+async function isClaudeCliAvailable(): Promise<boolean> {
+  if (process.env.CLAUDE_CLI_DISABLED === "1") return false;
+  const now = Date.now();
+  if (now - claudeCliHealthCache.at < HEALTH_TTL) return claudeCliHealthCache.healthy;
+  const healthy = await new Promise<boolean>((resolve) => {
+    try {
+      const child = spawn(claudeCliBin(), ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
+      const t = setTimeout(() => {
+        child.kill();
+        resolve(false);
+      }, 2000);
+      child.on("close", (code) => {
+        clearTimeout(t);
+        resolve(code === 0);
+      });
+      child.on("error", () => {
+        clearTimeout(t);
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+  claudeCliHealthCache.at = now;
+  claudeCliHealthCache.healthy = healthy;
+  return healthy;
+}
+
+function buildClaudeCliArgs(opts: { model: string; system?: string; stream: boolean }): string[] {
+  // Pure text Q&A: no tool use, no hooks, no side effects.
+  // We deny every agentic tool — the CLI will run as a stateless text completion.
+  // (We can't use --bare since it disables OAuth; the user is signed in via Claude Code.)
+  const args = [
+    "-p",
+    "--model",
+    opts.model,
+    "--disallowedTools",
+    "Read Write Edit Bash Glob Grep Task WebFetch WebSearch NotebookEdit TodoWrite",
+  ];
+  if (opts.stream) {
+    args.push("--output-format", "stream-json", "--verbose");
+  } else {
+    args.push("--output-format", "text");
+  }
+  if (opts.system?.trim()) {
+    args.push("--append-system-prompt", opts.system.trim());
+  }
+  return args;
+}
+
+async function callClaudeCliOnce(args: {
+  prompt: string;
+  system?: string;
+  timeoutMs: number;
+}): Promise<string> {
+  const model = await getClaudeCliModel();
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(claudeCliBin(), buildClaudeCliArgs({ model, system: args.system, stream: false }), {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, CLAUDE_CODE_SIMPLE: "1" },
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      setTimeout(() => child.kill("SIGKILL"), 2000);
+      reject(new Error(`claude_cli timeout after ${args.timeoutMs}ms`));
+    }, args.timeoutMs);
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`claude_cli spawn: ${err.message}`));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`claude_cli exit ${code}: ${stderr.slice(0, 300) || stdout.slice(0, 300)}`));
+        return;
+      }
+      resolve(stdout.trim());
+    });
+    child.stdin.write(args.prompt);
+    child.stdin.end();
+  });
+}
+
+async function* streamClaudeCli(args: {
+  prompt: string;
+  system?: string;
+  timeoutMs: number;
+}): AsyncIterable<string> {
+  const model = await getClaudeCliModel();
+  const child = spawn(claudeCliBin(), buildClaudeCliArgs({ model, system: args.system, stream: true }), {
+    stdio: ["pipe", "pipe", "pipe"],
+    env: { ...process.env, CLAUDE_CODE_SIMPLE: "1" },
+  });
+
+  const timer = setTimeout(() => {
+    child.kill("SIGTERM");
+    setTimeout(() => child.kill("SIGKILL"), 2000);
+  }, args.timeoutMs);
+
+  child.stdin.write(args.prompt);
+  child.stdin.end();
+
+  let stderr = "";
+  child.stderr.on("data", (d) => (stderr += d.toString()));
+
+  const queue: string[] = [];
+  let resolveWait: (() => void) | null = null;
+  let finished = false;
+  let errorMsg: string | null = null;
+  let emittedSoFar = "";
+
+  function notify() {
+    if (resolveWait) {
+      const r = resolveWait;
+      resolveWait = null;
+      r();
+    }
+  }
+
+  let buffer = "";
+  child.stdout.on("data", (d) => {
+    buffer += d.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      try {
+        const obj = JSON.parse(line) as {
+          type?: string;
+          message?: { content?: Array<{ type?: string; text?: string }> };
+        };
+        if (obj.type === "assistant" && obj.message?.content) {
+          // Each assistant event re-emits the full text accumulated so far.
+          // Extract incremental delta.
+          const full = obj.message.content
+            .filter((c) => c.type === "text")
+            .map((c) => c.text ?? "")
+            .join("");
+          if (full.startsWith(emittedSoFar)) {
+            const delta = full.slice(emittedSoFar.length);
+            if (delta) {
+              queue.push(delta);
+              emittedSoFar = full;
+              notify();
+            }
+          } else if (full && full !== emittedSoFar) {
+            // Fallback: re-emit (shouldn't normally happen)
+            queue.push(full);
+            emittedSoFar = full;
+            notify();
+          }
+        }
+      } catch {
+        // not JSON — ignore
+      }
+    }
+  });
+
+  child.on("close", (code) => {
+    clearTimeout(timer);
+    if (code !== 0 && !emittedSoFar) {
+      errorMsg = `claude_cli exit ${code}: ${stderr.slice(0, 300)}`;
+    }
+    finished = true;
+    notify();
+  });
+  child.on("error", (err) => {
+    clearTimeout(timer);
+    errorMsg = `claude_cli spawn: ${err.message}`;
+    finished = true;
+    notify();
+  });
+
+  while (true) {
+    if (queue.length) {
+      yield queue.shift()!;
+      continue;
+    }
+    if (finished) {
+      if (errorMsg) throw new Error(errorMsg);
+      return;
+    }
+    await new Promise<void>((r) => (resolveWait = r));
+  }
+}
+
 export async function isAnyAiAvailable(): Promise<boolean> {
-  const [osaurus, claude, cursor] = await Promise.all([
+  const [osaurus, claudeCli, claude, cursor] = await Promise.all([
     isOsaurusAvailable(),
+    isClaudeCliAvailable(),
     isClaudeAvailable(),
     isCursorAvailable(),
   ]);
-  return osaurus || claude || cursor;
+  return osaurus || claudeCli || claude || cursor;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -296,10 +512,10 @@ async function withRetries<T>(
 
 export type AiTextResult = {
   text: string;
-  provider: "osaurus" | "claude" | "cursor";
+  provider: "osaurus" | "claude_cli" | "claude" | "cursor";
 };
 
-type ProviderId = "osaurus" | "claude" | "cursor";
+type ProviderId = "osaurus" | "claude_cli" | "claude" | "cursor";
 
 async function tryProvider(
   id: ProviderId,
@@ -317,6 +533,22 @@ async function tryProvider(
         `[ai] osaurus exhausted: ${err instanceof Error ? err.message : String(err)}`,
       );
       healthCache.set(`${osaurusBase()}/v1/models`, { at: Date.now(), healthy: false });
+      return null;
+    }
+  }
+  if (id === "claude_cli") {
+    if (!(await isClaudeCliAvailable())) return null;
+    try {
+      return await withRetries(
+        () => callClaudeCliOnce({ prompt: args.prompt, system: args.system, timeoutMs: args.timeoutMs }),
+        { retries: 1, baseDelayMs: 3_000, label: "claude_cli" },
+      );
+    } catch (err) {
+      console.warn(
+        `[ai] claude_cli exhausted: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      claudeCliHealthCache.healthy = false;
+      claudeCliHealthCache.at = Date.now();
       return null;
     }
   }
@@ -361,7 +593,7 @@ async function effectiveProviderOrder(): Promise<ProviderId[]> {
     const s = await getSettings();
     return s.ai_provider_order.filter((p) => s.ai_provider_enabled[p]) as ProviderId[];
   } catch {
-    return ["osaurus", "claude", "cursor"];
+    return ["osaurus", "claude_cli", "claude", "cursor"];
   }
 }
 
@@ -517,6 +749,14 @@ export async function* claudeStream(args: {
           yield chunk;
         }
         if (yielded) return;
+      } else if (id === "claude_cli") {
+        if (!(await isClaudeCliAvailable())) continue;
+        let yielded = false;
+        for await (const chunk of streamClaudeCli({ prompt: args.prompt, system: args.system, timeoutMs })) {
+          yielded = true;
+          yield chunk;
+        }
+        if (yielded) return;
       } else if (id === "claude") {
         if (!(await isClaudeAvailable())) continue;
         let yielded = false;
@@ -541,7 +781,7 @@ export async function* claudeStream(args: {
     }
   }
 
-  yield "AI providers unavailable. Check the Settings page to verify provider order, or start one of: Osaurus :1337, claude_local_api :8765, cursor-api :7878.";
+  yield "AI providers unavailable. Check Settings → AI provider order. Available providers: Osaurus :1337, claude CLI (direct), claude_local_api :8765, cursor-api :7878.";
 }
 
 /**
