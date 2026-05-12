@@ -6,10 +6,7 @@
 // Fallback1: claude_cli        — direct subprocess call to `claude` CLI
 //            Uses Claude Code subscription. Model selectable in settings.
 //
-// Fallback2: claude_local_api  — http://localhost:8765 (HTTP wrapper around Claude CLI)
-//            Project: /Users/rexdanquah/Projects/claude_local_api
-//
-// Fallback3: cursor-api        — http://localhost:7878 (OpenAI-compatible, Cursor Agent CLI)
+// Fallback2: cursor-api        — http://localhost:7878 (OpenAI-compatible, Cursor Agent CLI)
 //            Project: /Users/rexdanquah/Projects/cursor-api
 
 import { spawn } from "node:child_process";
@@ -21,8 +18,6 @@ import { spawn } from "node:child_process";
 
 const OSAURUS_DEFAULT_BASE = "http://127.0.0.1:1337";
 const OSAURUS_DEFAULT_MODEL = "foundation";
-const CLAUDE_DEFAULT_BASE = "http://localhost:8765";
-const CLAUDE_DEFAULT_PROVIDER = "subprocess";
 const CURSOR_DEFAULT_BASE = "http://localhost:7878";
 
 function osaurusBase(): string {
@@ -39,17 +34,6 @@ function osaurusKey(): string | null {
 
 function osaurusModel(): string {
   return process.env.OSAURUS_MODEL ?? OSAURUS_DEFAULT_MODEL;
-}
-
-function claudeBase(): string {
-  return (process.env.CLAUDE_LOCAL_API_URL ?? CLAUDE_DEFAULT_BASE).replace(
-    /\/$/,
-    "",
-  );
-}
-
-function claudeProvider(): string {
-  return process.env.CLAUDE_LOCAL_PROVIDER ?? CLAUDE_DEFAULT_PROVIDER;
 }
 
 function cursorBase(): string {
@@ -91,11 +75,6 @@ async function isOsaurusAvailable(): Promise<boolean> {
   if (process.env.OSAURUS_DISABLED === "1") return false;
   // Osaurus is OpenAI-compatible; /v1/models is the standard liveness probe.
   return pingHealth(`${osaurusBase()}/v1/models`);
-}
-
-export async function isClaudeAvailable(): Promise<boolean> {
-  if (process.env.CLAUDE_LOCAL_DISABLED === "1") return false;
-  return pingHealth(`${claudeBase()}/health`);
 }
 
 async function isCursorAvailable(): Promise<boolean> {
@@ -314,14 +293,16 @@ async function* streamClaudeCli(args: {
 }
 
 export async function isAnyAiAvailable(): Promise<boolean> {
-  const [osaurus, claudeCli, claude, cursor] = await Promise.all([
+  const [osaurus, claudeCli, cursor] = await Promise.all([
     isOsaurusAvailable(),
     isClaudeCliAvailable(),
-    isClaudeAvailable(),
     isCursorAvailable(),
   ]);
-  return osaurus || claudeCli || claude || cursor;
+  return osaurus || claudeCli || cursor;
 }
+
+// Kept as alias for backwards compat — semantically means "any AI reachable".
+export const isClaudeAvailable = isAnyAiAvailable;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -332,85 +313,6 @@ function isTransientError(err: unknown): boolean {
   return (
     /timeout|abort|ECONN|EPIPE|fetch failed|429|5\d\d/i.test(msg) || true
   ); // treat all errors as transient — we want the fallback chain anyway
-}
-
-function newRequestId(): string {
-  return (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
-    .toString()
-    .replace(/-/g, "")
-    .slice(0, 8);
-}
-
-type ClaudeApiError = Error & {
-  requestId: string;
-  status?: number;
-  category?: string;
-  bodyPreview?: string;
-};
-
-function makeClaudeApiError(opts: {
-  requestId: string;
-  status?: number;
-  category?: string;
-  bodyPreview?: string;
-  message: string;
-}): ClaudeApiError {
-  const err = new Error(opts.message) as ClaudeApiError;
-  err.name = "ClaudeApiError";
-  err.requestId = opts.requestId;
-  err.status = opts.status;
-  err.category = opts.category;
-  err.bodyPreview = opts.bodyPreview;
-  return err;
-}
-
-async function callClaudeOnce(args: {
-  prompt: string;
-  system?: string;
-  maxTurns: number;
-  timeoutMs: number;
-  requestId: string;
-}): Promise<string> {
-  const url = `${claudeBase()}/query/${claudeProvider()}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-request-id": args.requestId,
-    },
-    body: JSON.stringify({
-      prompt: args.prompt,
-      system: args.system,
-      max_turns: args.maxTurns,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(args.timeoutMs),
-  });
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    let category: string | undefined;
-    let serverMessage = bodyText;
-    try {
-      const parsed = JSON.parse(bodyText) as {
-        error?: string;
-        category?: string;
-        request_id?: string;
-      };
-      if (parsed.error) serverMessage = parsed.error;
-      if (parsed.category) category = parsed.category;
-    } catch {
-      // not JSON — keep raw text
-    }
-    throw makeClaudeApiError({
-      requestId: args.requestId,
-      status: res.status,
-      category,
-      bodyPreview: bodyText.slice(0, 500),
-      message: `claude_local_api ${res.status}${category ? ` [${category}]` : ""}: ${serverMessage.slice(0, 200)}`,
-    });
-  }
-  const json = (await res.json()) as { result?: string };
-  return String(json.result ?? "");
 }
 
 async function callOsaurusOnce(args: {
@@ -512,10 +414,10 @@ async function withRetries<T>(
 
 export type AiTextResult = {
   text: string;
-  provider: "osaurus" | "claude_cli" | "claude" | "cursor";
+  provider: "osaurus" | "claude_cli" | "cursor";
 };
 
-type ProviderId = "osaurus" | "claude_cli" | "claude" | "cursor";
+type ProviderId = "osaurus" | "claude_cli" | "cursor";
 
 async function tryProvider(
   id: ProviderId,
@@ -552,22 +454,6 @@ async function tryProvider(
       return null;
     }
   }
-  if (id === "claude") {
-    if (!(await isClaudeAvailable())) return null;
-    const requestId = newRequestId();
-    try {
-      return await withRetries(
-        () => callClaudeOnce({ ...args, requestId }),
-        { retries: 1, baseDelayMs: 3_000, label: `claude rid=${requestId}` },
-      );
-    } catch (err) {
-      console.warn(
-        `[ai] claude_local_api exhausted rid=${requestId}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      healthCache.set(`${claudeBase()}/health`, { at: Date.now(), healthy: false });
-      return null;
-    }
-  }
   if (id === "cursor") {
     if (!(await isCursorAvailable())) return null;
     try {
@@ -593,7 +479,7 @@ async function effectiveProviderOrder(): Promise<ProviderId[]> {
     const s = await getSettings();
     return s.ai_provider_order.filter((p) => s.ai_provider_enabled[p]) as ProviderId[];
   } catch {
-    return ["osaurus", "claude_cli", "claude", "cursor"];
+    return ["osaurus", "claude_cli", "cursor"];
   }
 }
 
@@ -687,38 +573,6 @@ async function* streamOsaurus(args: { prompt: string; system?: string; timeoutMs
   }
 }
 
-async function* streamClaude(args: { prompt: string; system?: string; maxTurns: number; timeoutMs: number }): AsyncIterable<string> {
-  const requestId = newRequestId();
-  const res = await fetch(`${claudeBase()}/query/${claudeProvider()}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-request-id": requestId,
-    },
-    body: JSON.stringify({
-      prompt: args.prompt,
-      system: args.system,
-      max_turns: args.maxTurns,
-      stream: true,
-    }),
-    signal: AbortSignal.timeout(args.timeoutMs),
-  });
-  if (!res.ok || !res.body) {
-    const bodyText = res.body ? await res.text().catch(() => "") : "";
-    throw new Error(`claude_local_api ${res.status} rid=${requestId}: ${bodyText.slice(0, 200)}`);
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    if (!chunk) continue;
-    const cleaned = chunk.replace(/\n?\[done:[^\]]*\]\s*$/, "");
-    if (cleaned) yield cleaned;
-  }
-}
-
 async function* streamCursor(args: { prompt: string; system?: string; timeoutMs: number }): AsyncIterable<string> {
   // Cursor: non-streaming fallback yielded as one chunk.
   const text = await callCursorOnce({ prompt: args.prompt, system: args.system, timeoutMs: args.timeoutMs });
@@ -757,14 +611,6 @@ export async function* claudeStream(args: {
           yield chunk;
         }
         if (yielded) return;
-      } else if (id === "claude") {
-        if (!(await isClaudeAvailable())) continue;
-        let yielded = false;
-        for await (const chunk of streamClaude({ prompt: args.prompt, system: args.system, maxTurns, timeoutMs })) {
-          yielded = true;
-          yield chunk;
-        }
-        if (yielded) return;
       } else if (id === "cursor") {
         if (!(await isCursorAvailable())) continue;
         let yielded = false;
@@ -781,7 +627,7 @@ export async function* claudeStream(args: {
     }
   }
 
-  yield "AI providers unavailable. Check Settings → AI provider order. Available providers: Osaurus :1337, claude CLI (direct), claude_local_api :8765, cursor-api :7878.";
+  yield "AI providers unavailable. Check Settings → AI provider order. Available providers: Osaurus :1337, Claude CLI (direct), cursor-api :7878.";
 }
 
 /**

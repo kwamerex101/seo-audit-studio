@@ -285,7 +285,7 @@ async function send() {
         v-if="!aiConfigured"
         class="border-b border-warn/30 bg-warn/10 px-4 py-2 text-xs text-warn"
       >
-        No AI provider reachable. Start Osaurus, claude_local_api, or cursor-api.
+        No AI provider reachable. Start Osaurus, Claude CLI, or cursor-api.
       </div>
 
       <div

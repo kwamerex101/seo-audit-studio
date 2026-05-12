@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
       summary: null,
       cached: false,
       error:
-        "AI unavailable. Start claude_local_api on :8765 or cursor-api on :7878.",
+        "AI unavailable. Start Osaurus :1337, Claude CLI, or cursor-api :7878.",
     };
   }
   summary.source_audit_id = candidate.id;

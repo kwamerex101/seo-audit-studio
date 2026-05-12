@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { dataRoot, readJson, writeJson } from "./fs";
 
-export type AiProvider = "osaurus" | "claude_cli" | "claude" | "cursor";
+export type AiProvider = "osaurus" | "claude_cli" | "cursor";
 
 export type ClaudeCliModel = "sonnet" | "opus" | "haiku" | "default";
 
@@ -11,11 +11,11 @@ export type AppSettings = {
   claude_cli_model: ClaudeCliModel;
 };
 
-const ALL_PROVIDERS: AiProvider[] = ["osaurus", "claude_cli", "claude", "cursor"];
+const ALL_PROVIDERS: AiProvider[] = ["osaurus", "claude_cli", "cursor"];
 
 const DEFAULTS: AppSettings = {
-  ai_provider_order: ["osaurus", "claude_cli", "claude", "cursor"],
-  ai_provider_enabled: { osaurus: true, claude_cli: true, claude: true, cursor: true },
+  ai_provider_order: ["osaurus", "claude_cli", "cursor"],
+  ai_provider_enabled: { osaurus: true, claude_cli: true, cursor: true },
   claude_cli_model: "sonnet",
 };
 
@@ -42,7 +42,13 @@ function normalize(input: Partial<AppSettings> | null): AppSettings {
   for (const p of ALL_PROVIDERS) {
     if (!seen.has(p)) order.push(p);
   }
-  const enabled = { ...DEFAULTS.ai_provider_enabled, ...(input.ai_provider_enabled ?? {}) };
+  // Strip legacy "claude" entries from persisted settings.
+  const rawEnabled = { ...(input.ai_provider_enabled ?? {}) } as Record<string, boolean>;
+  delete rawEnabled.claude;
+  const enabled = {
+    ...DEFAULTS.ai_provider_enabled,
+    ...(rawEnabled as Partial<Record<AiProvider, boolean>>),
+  };
   const validModels: ClaudeCliModel[] = ["sonnet", "opus", "haiku", "default"];
   const model = validModels.includes(input.claude_cli_model as ClaudeCliModel)
     ? (input.claude_cli_model as ClaudeCliModel)

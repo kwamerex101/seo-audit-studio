@@ -66,7 +66,7 @@ export async function rescoreAudit(input: RescoreInput): Promise<RescoreResult> 
       step: "failed",
       pct: 100,
       message:
-        "No AI provider reachable. Start claude_local_api on :8765 or cursor-api on :7878.",
+        "No AI provider reachable. Start Osaurus :1337, Claude CLI, or cursor-api :7878.",
     });
     throw new Error("No AI provider reachable");
   }

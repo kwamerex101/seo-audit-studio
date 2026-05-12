@@ -65,7 +65,7 @@ export async function streamChatReply(args: {
 }): Promise<string> {
   if (!(await isClaudeAvailable())) {
     const msg =
-      "Local Claude API is not reachable. Make sure claude_local_api is running on http://localhost:8765 (cd /Users/rexdanquah/Projects/claude_local_api && ./start.sh).";
+      "No AI provider reachable. Start Osaurus on :1337, ensure the `claude` CLI is on PATH and logged in, or start cursor-api on :7878. Configure provider order in Settings.";
     args.onDelta(msg);
     return msg;
   }

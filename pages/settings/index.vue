@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type AiProvider = "osaurus" | "claude_cli" | "claude" | "cursor";
+type AiProvider = "osaurus" | "claude_cli" | "cursor";
 type ClaudeCliModel = "sonnet" | "opus" | "haiku" | "default";
 type AppSettings = {
   ai_provider_order: AiProvider[];
@@ -23,12 +23,6 @@ const PROVIDER_META: Record<
     defaultUrl: "subprocess: claude -p",
     envHint: "CLAUDE_CLI_BIN (override path)",
   },
-  claude: {
-    name: "claude_local_api",
-    description: "HTTP wrapper around the Claude Code CLI. Use if you want to route through the local proxy.",
-    defaultUrl: "http://localhost:8765",
-    envHint: "CLAUDE_LOCAL_API_URL · CLAUDE_LOCAL_PROVIDER",
-  },
   cursor: {
     name: "cursor-api",
     description: "OpenAI-compatible proxy over the Cursor Agent CLI.",
@@ -45,8 +39,8 @@ const CLAUDE_CLI_MODELS: { value: ClaudeCliModel; label: string; hint: string }[
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
-  ai_provider_order: ["osaurus", "claude_cli", "claude", "cursor"],
-  ai_provider_enabled: { osaurus: true, claude_cli: true, claude: true, cursor: true },
+  ai_provider_order: ["osaurus", "claude_cli", "cursor"],
+  ai_provider_enabled: { osaurus: true, claude_cli: true, cursor: true },
   claude_cli_model: "sonnet",
 };
 
@@ -289,7 +283,6 @@ function setClaudeCliModel(m: ClaudeCliModel) {
                 <ul class="ml-5 mt-1 list-disc">
                   <li><span class="font-mono">Osaurus</span> on <span class="font-mono">127.0.0.1:1337</span> (recommended, fully local)</li>
                   <li><span class="font-mono">Claude CLI</span> installed and authenticated (<span class="font-mono">claude --version</span>) — invoked directly as a subprocess</li>
-                  <li><span class="font-mono">claude_local_api</span> on <span class="font-mono">localhost:8765</span> (optional HTTP wrapper)</li>
                   <li><span class="font-mono">cursor-api</span> on <span class="font-mono">localhost:7878</span> (Cursor Agent CLI)</li>
                 </ul>
               </li>
@@ -319,8 +312,9 @@ pnpm dev</pre>
 OSAURUS_API_KEY=osk-v1...
 OSAURUS_MODEL=gemma-4-e2b-it-8bit
 
-CLAUDE_LOCAL_API_URL=http://localhost:8765
-CLAUDE_LOCAL_PROVIDER=subprocess
+# Claude CLI: no env needed. Optional overrides:
+CLAUDE_CLI_BIN=claude        # path to the binary
+CLAUDE_CLI_MODEL=sonnet      # fallback if settings.json missing
 
 CURSOR_API_URL=http://localhost:7878
 CURSOR_API_TOKEN=...
@@ -343,7 +337,7 @@ CURSOR_API_MODEL=auto</pre>
             Can I run multiple audits at the same time?
           </summary>
           <div class="mt-2 text-sm text-mute leading-relaxed">
-            Yes — jobs run independently. The crawl/scoring stages parallelize cleanly. AI calls hit the same provider, so if you're using local inference (Osaurus, claude_local_api), expect the AI portion to serialize at the model level — running 2 audits is roughly 2× slower for the AI step than running them sequentially.
+            Yes — jobs run independently. The crawl/scoring stages parallelize cleanly. AI calls hit the same provider, so if you're using local inference (Osaurus, Claude CLI), expect the AI portion to serialize at the model level — running 2 audits is roughly 2× slower for the AI step than running them sequentially.
           </div>
         </details>
 

@@ -213,7 +213,7 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
         step: "score_claude",
         pct: 80,
         message:
-          "AI scoring skipped (no AI provider reachable: claude_local_api :8765 / cursor-api :7878)",
+          "AI scoring skipped (no AI provider reachable: Osaurus :1337 / Claude CLI / cursor-api :7878)",
       });
     }
 

@@ -379,9 +379,9 @@ function downloadHtml() {
       <div>
         AI scoring was skipped for this audit (Claude items: direct answer,
         E-E-A-T, citation readiness, information gain, keyword tiers,
-        competitors, Trinity review). Re-run via the local Claude API
-        (<code>claude_local_api</code> on
-        <code>http://localhost:8765</code>) to populate them.
+        competitors, Trinity review). Start Osaurus, ensure the
+        <code>claude</code> CLI is on PATH, or start cursor-api and click
+        Re-run to populate them.
       </div>
       <button
         class="shrink-0 rounded-lg border border-warn/60 bg-warn/20 px-3 py-1.5 text-xs font-semibold text-warn hover:bg-warn/30"
