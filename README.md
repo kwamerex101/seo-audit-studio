@@ -1,4 +1,16 @@
+<div align="center">
+
 # SEO Audit Studio
+
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Nuxt](https://img.shields.io/badge/Nuxt-3-00DC82?logo=nuxtdotjs&logoColor=white)
+![Vue](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
+
+**Multi-company SEO + GEO audit studio — crawl, score, and chat with the results.**
+
+</div>
 
 Multi-company SEO + GEO (Generative Engine Optimization) audit app. Sitemap discovery → polite crawl → deterministic + AI scoring → interactive report → per-audit Q&A chat → session export.
 
