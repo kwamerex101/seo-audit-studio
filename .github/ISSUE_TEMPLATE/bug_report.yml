@@ -1,0 +1,57 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! For **security** issues, do not file here — see SECURITY.md.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. Include the audit URL / config if relevant.
+      placeholder: |
+        1. Submit an audit for https://...
+        2. Watch the job progress
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Crawler / sitemap
+        - Deterministic scoring
+        - AI scoring / providers
+        - Report viewer (frontend)
+        - Q&A chat
+        - Jobs / SSE progress
+        - Migration
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Dev-server output, job log, or browser console. Redact anything sensitive.
+      render: shell
+  - type: input
+    id: provider
+    attributes:
+      label: AI provider in use
+      placeholder: "claude_cli / osaurus / cursor / none"
+  - type: input
+    id: version
+    attributes:
+      label: Commit / version
+      placeholder: "git rev-parse --short HEAD"
