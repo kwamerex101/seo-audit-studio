@@ -123,6 +123,10 @@ pnpm run migrate  # legacy import
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The `main` branch is protected — open a pull request; external PRs require maintainer approval before merge.
 
+## Author
+
+Theophilus RexDanquah — [rexdanquah.dev](https://rexdanquah.dev)
+
 ## License
 
-[MIT](LICENSE) © Theophilus RexDanquah
+[MIT](LICENSE) © [Theophilus RexDanquah](https://rexdanquah.dev)
