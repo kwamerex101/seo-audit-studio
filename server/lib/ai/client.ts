@@ -160,7 +160,7 @@ async function callClaudeCliOnce(args: {
   return new Promise<string>((resolve, reject) => {
     const child = spawn(claudeCliBin(), buildClaudeCliArgs({ model, system: args.system, stream: false }), {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, CLAUDE_CODE_SIMPLE: "1" },
+      env: process.env,
     });
     let stdout = "";
     let stderr = "";
@@ -196,7 +196,7 @@ async function* streamClaudeCli(args: {
   const model = await getClaudeCliModel();
   const child = spawn(claudeCliBin(), buildClaudeCliArgs({ model, system: args.system, stream: true }), {
     stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env, CLAUDE_CODE_SIMPLE: "1" },
+    env: process.env,
   });
 
   const timer = setTimeout(() => {
