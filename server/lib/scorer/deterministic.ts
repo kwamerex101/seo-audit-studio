@@ -353,13 +353,15 @@ export function scorePageDeterministic(args: {
     });
   }
   const org = page.organization_schema;
+  const orgMissing = [
+    !org.has_name && "name",
+    !org.has_url && "url",
+    !org.has_logo && "logo",
+    !org.has_sameAs && "sameAs",
+  ].filter(Boolean) as string[];
   let orgScore = 0;
   if (org.present) {
-    const complete =
-      (org.has_name ? 1 : 0) +
-      (org.has_url ? 1 : 0) +
-      (org.has_logo ? 1 : 0) +
-      (org.has_sameAs ? 1 : 0);
+    const complete = 4 - orgMissing.length;
     orgScore = complete === 4 ? 10 : complete > 0 ? 5 : 0;
   }
   deduct("schema", (10 - orgScore) * 1.5);
@@ -368,7 +370,7 @@ export function scorePageDeterministic(args: {
       id: "schema.organization",
       severity: "info",
       message: org.present
-        ? "Organization schema is partial (missing name/url/logo/sameAs)."
+        ? `Organization schema is partial (missing ${orgMissing.join(", ")}).`
         : "No Organization schema.",
       category: "schema",
     });
