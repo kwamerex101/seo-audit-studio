@@ -16,7 +16,8 @@ export const PageAudit = z
     heading_hierarchy_clean: z.boolean().optional(),
     images_total: z.number().optional(),
     images_missing_alt: z.number().optional(),
-    images_no_alt: z.number().optional(),
+    // legacy reports stored this as a number; .catch drops those to undefined
+    images_no_alt: z.array(z.string()).optional().catch(undefined),
     json_ld_types: z.array(z.string()).default([]),
     json_ld: z.array(z.any()).optional(),
     canonical_present: z.boolean().optional(),
