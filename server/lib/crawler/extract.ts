@@ -37,7 +37,11 @@ export function extractSignals(args: {
   const imagesNoAltSamples: string[] = [];
   $("img").each((_, el) => {
     const alt = $(el).attr("alt");
-    if (!alt || alt.trim().length === 0) {
+    // alt="" is the HTML-spec marker for a decorative image and is correct
+    // markup, so it stays exempt. An absent alt attribute is missing; a
+    // non-empty but whitespace-only alt (e.g. "   ") is a broken value, not
+    // a decorative marker, so it is still flagged.
+    if (alt === undefined || (alt.length > 0 && alt.trim().length === 0)) {
       imagesMissingAlt += 1;
       const src = $(el).attr("src");
       if (src && imagesNoAltSamples.length < 10) imagesNoAltSamples.push(src);
