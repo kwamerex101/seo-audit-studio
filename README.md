@@ -1,20 +1,18 @@
 <div align="center">
 
-# SEO Audit Studio
+<img src=".github/assets/hero.svg" alt="SEO Audit Studio: crawl, score across SEO and GEO, and chat with the results" width="100%">
+
+<br />
 
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Nuxt](https://img.shields.io/badge/Nuxt-3-00DC82?logo=nuxtdotjs&logoColor=white)
 ![Vue](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
-
-**Multi-company SEO + GEO audit studio — crawl, score, and chat with the results.**
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)
 
 </div>
 
-Multi-company SEO + GEO (Generative Engine Optimization) audit app. Sitemap discovery → polite crawl → deterministic + AI scoring → interactive report → per-audit Q&A chat → session export.
-
-Built with Nuxt 3 (Vue 3 + Nitro), Tailwind, Zod, and file-based storage — no database.
+**Multi-company SEO + GEO (Generative Engine Optimization) audit studio.** Sitemap discovery, a polite crawl, deterministic and AI scoring, an interactive report, per-audit Q&A chat, and session export. Built with Nuxt 3 (Vue 3 + Nitro), Tailwind, and Zod, on file-based storage with no database.
 
 ## Quick start
 
@@ -25,28 +23,28 @@ pnpm run migrate           # optional: import legacy ai_agent/outputs audits
 pnpm dev                   # http://localhost:3000
 ```
 
-> **Before submitting a new audit**, make sure at least one AI provider is reachable (see below). Without one, audits still complete but scoring stays deterministic-only — Trinity review, keyword tiers, and competitors stay empty.
+> At least one AI provider must be reachable before you submit an audit (see below). Without one, audits still complete, but scoring stays deterministic-only: Trinity review, keyword tiers, and competitors stay empty.
 
 ## AI providers
 
-The app runs a **provider chain with automatic fallback**. The order and which providers are enabled are configured in the UI at **Settings → AI provider order** (persisted to `data/settings.json`). Default order:
+The app runs a **provider chain with automatic fallback**. Order and enabled flags are set in the UI at **Settings → AI provider order** (persisted to `data/settings.json`) and can also be forced off per provider via env. Default order:
 
-| Order | Provider | What it is | Config |
-|---|---|---|---|
-| 1 | **osaurus** | Local OpenAI-compatible inference server | `OSAURUS_API_URL` (default `:1337`), `OSAURUS_MODEL` |
-| 2 | **claude_cli** | The `claude` CLI invoked directly as a subprocess | uses your Claude Code login — **no API key** |
-| 3 | **cursor** | OpenAI-compatible proxy over the Cursor Agent CLI | `CURSOR_API_URL` (default `:7878`), `CURSOR_API_TOKEN` |
+| # | Provider | What it is | Configuration |
+|---|----------|------------|---------------|
+| 1 | **osaurus** | Local OpenAI-compatible inference server | `OSAURUS_API_URL` (default `http://127.0.0.1:1337`), `OSAURUS_MODEL` (default `foundation`), optional `OSAURUS_API_KEY` |
+| 2 | **claude_cli** | The `claude` CLI invoked directly as a subprocess | Uses your Claude Code login, **no API key**. Model comes from **Settings** (`claude_cli_model`, default `sonnet`); point at a non-default binary with `CLAUDE_CLI_BIN` |
+| 3 | **cursor** | OpenAI-compatible proxy over the Cursor Agent CLI | `CURSOR_API_URL` (default `http://localhost:7878`), `CURSOR_API_TOKEN`, `CURSOR_API_MODEL` (default `auto`) |
 
-You only need **one** working provider. `claude_cli` is the simplest: if you're logged into Claude Code (`claude` on your `PATH`, authenticated via keychain OAuth), it works with zero extra setup.
+You only need **one** working provider. `claude_cli` is the simplest: if you are logged into Claude Code (`claude` on your `PATH`, authenticated via keychain OAuth), it works with no extra setup.
 
 ```bash
 # Verify claude_cli is usable:
 echo "Reply OK" | claude -p --model sonnet --output-format text   # → OK
 ```
 
-Each provider gets up to **2 retries** (3 s → 9 s exponential backoff) with a **180 s** per-attempt timeout, then falls through to the next. If every provider fails for a page, the URL is recorded in `ai_failed_urls` and the audit completes with deterministic scoring; the report shows a collapsible warning listing the failed pages. Per-page AI calls are sequential with a **300 ms** throttle.
+Each provider gets up to **2 retries** (3 s then 9 s backoff) with a **180 s** per-attempt timeout, then falls through to the next. If every provider fails for a page, the URL is recorded in `ai_failed_urls` and the audit still completes with deterministic scoring; the report shows a collapsible warning listing the failed pages. Per-page AI calls run sequentially with a **300 ms** throttle.
 
-Disable a provider via env (`OSAURUS_DISABLED=1`, `CLAUDE_CLI_DISABLED=1`, `CURSOR_API_DISABLED=1`) or by toggling it off in Settings.
+Disable a provider with an env flag (`OSAURUS_DISABLED=1`, `CLAUDE_CLI_DISABLED=1`, `CURSOR_API_DISABLED=1`) or by toggling it off in Settings.
 
 ## How an audit works
 
@@ -81,11 +79,11 @@ POST /api/audits  →  {job_id, audit_id, company_slug}      (returns immediatel
               GET /api/jobs/[id]/stream  (SSE: live progress events)
 ```
 
-The audit page subscribes via `EventSource` and shows a live progress stepper until the job reports `done`. Scoring weights the site overall as `seo * 0.6 + geo * 0.4`.
+The audit page subscribes via `EventSource` and shows a live progress stepper until the job reports `done`. The site overall is weighted `seo * 0.6 + geo * 0.4`.
 
 ## Sitemap coverage
 
-By default `max_pages = 0` — the crawler audits **every URL** the sitemap lists. Set a positive number on the form (or in the API body) to cap it. The BFS fallback (no sitemap) keeps a 50-URL safety cap regardless.
+By default `max_pages = 0`, so the crawler audits **every URL** the sitemap lists. Set a positive number on the form (or in the API body) to cap it. The BFS fallback (no sitemap) keeps a 50-URL safety cap regardless.
 
 ## Per-audit Q&A chat
 
@@ -110,14 +108,14 @@ data/
 
 ## Migration
 
-`pnpm run migrate` imports legacy outputs from an `ai_agent/outputs/` folder into the studio's per-company layout. Idempotent — safe to re-run. Set the source with `LEGACY_OUTPUTS_DIR`.
+`pnpm run migrate` imports legacy outputs from an `ai_agent/outputs/` folder into the studio's per-company layout. It is idempotent, so it is safe to re-run. Set the source with `LEGACY_OUTPUTS_DIR`.
 
 ## Commands
 
 ```bash
-pnpm dev          # dev server
+pnpm dev          # dev server at http://localhost:3000
 pnpm build        # production build
-pnpm preview      # preview the build
+pnpm preview      # preview the production build
 pnpm typecheck    # vue-tsc type check
 pnpm run migrate  # legacy import
 ```
@@ -125,19 +123,19 @@ pnpm run migrate  # legacy import
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
-|---|---|---|
-| Trinity / keywords / competitors empty after audit | No AI provider was reachable | Enable/start a provider; click **Re-run with AI** on the audit page |
-| Logs show `claude_cli exit 1: Not logged in` | The `claude` CLI subprocess isn't authenticated | Run `claude` once interactively to log in; confirm `echo OK \| claude -p` works |
-| `AI scoring failed for N pages` warning | Some pages timed out on every provider | Click the warning to inspect URLs; **Re-run with AI** retries just those |
-| `pnpm dev` fails with `EADDRINUSE :3000` | Stale Nuxt process | `pkill -f "nuxt dev"` then re-run |
+|---------|--------------|-----|
+| Trinity / keywords / competitors empty after audit | No AI provider was reachable | Enable or start a provider, then click **Re-run with AI** on the audit page |
+| Logs show `claude_cli exit 1: Not logged in` | The `claude` CLI subprocess is not authenticated | Run `claude` once interactively to log in; confirm `echo OK \| claude -p` works |
+| `AI scoring failed for N pages` warning | Some pages timed out on every provider | Click the warning to inspect the URLs; **Re-run with AI** retries just those |
+| `pnpm dev` fails with `EADDRINUSE :3000` | Stale Nuxt process | `pkill -f "nuxt dev"`, then re-run |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The `main` branch is protected — open a pull request; external PRs require maintainer approval before merge.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The `main` branch is protected: open a pull request, and external PRs require maintainer approval before merge.
 
 ## Author
 
-Theophilus RexDanquah — [rexdanquah.dev](https://rexdanquah.dev)
+Theophilus RexDanquah, [rexdanquah.dev](https://rexdanquah.dev)
 
 ## License
 

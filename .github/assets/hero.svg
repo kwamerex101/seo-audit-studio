@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="100%" role="img" aria-labelledby="heroTitle heroDesc" font-family="'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="heroTitle">SEO Audit Studio</title>
+  <desc id="heroDesc">Multi-company SEO and GEO audit studio: crawl, score, and chat with the results. Example score gauges read Overall 79, SEO 86, and GEO 68 out of 100.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0f19"/>
+      <stop offset="1" stop-color="#0e1526"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#6ea8ff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#6ea8ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="400" rx="20" fill="url(#bg)"/>
+  <circle cx="948" cy="200" r="360" fill="url(#glow)"/>
+  <rect x="0.75" y="0.75" width="1198.5" height="398.5" rx="19.25" fill="none" stroke="#24304a" stroke-width="1.5"/>
+
+  <!-- brand mark: a mini score ring, the app's signature motif -->
+  <g>
+    <circle cx="98" cy="106" r="24" fill="none" stroke="#24304a" stroke-width="7"/>
+    <circle cx="98" cy="106" r="24" fill="none" stroke="#6ea8ff" stroke-width="7" stroke-linecap="round" stroke-dasharray="108.6 150.8" transform="rotate(-90 98 106)"/>
+    <circle cx="98" cy="106" r="4.5" fill="#6ea8ff"/>
+  </g>
+
+  <!-- wordmark + tagline -->
+  <text x="142" y="120" font-size="44" font-weight="800" fill="#e6ecf5" letter-spacing="-0.5">SEO Audit Studio</text>
+  <text x="144" y="160" font-size="18" fill="#8b97ad">Crawl, score, and chat with your SEO + GEO audits.</text>
+
+  <!-- formula chip: the real site aggregation -->
+  <rect x="143" y="182" width="352" height="36" rx="18" fill="#121826" stroke="#24304a"/>
+  <text x="163" y="205" font-size="15" fill="#8b97ad">
+    <tspan fill="#e6ecf5" font-weight="700">overall</tspan><tspan fill="#8b97ad"> = </tspan><tspan fill="#6ea8ff" font-weight="700">SEO</tspan><tspan> &#215; 0.6  +  </tspan><tspan fill="#6ea8ff" font-weight="700">GEO</tspan><tspan> &#215; 0.4</tspan>
+  </text>
+
+  <!-- scoring rubric categories (real: checklist.json) -->
+  <text x="145" y="256" font-size="10.5" fill="#8b97ad" letter-spacing="2">SCORING RUBRIC</text>
+  <g font-size="12" fill="#b7c1d4">
+    <rect x="143" y="266" width="82" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="184" y="283" text-anchor="middle">technical</text>
+    <rect x="233" y="266" width="78" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="272" y="283" text-anchor="middle">on-page</text>
+    <rect x="319" y="266" width="74" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="356" y="283" text-anchor="middle">content</text>
+    <rect x="401" y="266" width="58" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="430" y="283" text-anchor="middle">links</text>
+    <rect x="467" y="266" width="70" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="502" y="283" text-anchor="middle">schema</text>
+    <rect x="545" y="266" width="52" height="26" rx="13" fill="#1a2234" stroke="#24304a"/><text x="571" y="283" text-anchor="middle">geo</text>
+  </g>
+
+  <!-- divider -->
+  <line x1="678" y1="72" x2="678" y2="328" stroke="#24304a" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- score gauges: doughnut rings, 72% cutout, threshold colors (>=70 green, >=40 amber, else red) -->
+  <!-- OVERALL 79 -->
+  <g>
+    <text x="792" y="120" font-size="12" fill="#8b97ad" letter-spacing="2" text-anchor="middle">OVERALL</text>
+    <circle cx="792" cy="208" r="54" fill="none" stroke="#24304a" stroke-width="16"/>
+    <circle cx="792" cy="208" r="54" fill="none" stroke="#4ade80" stroke-width="16" stroke-linecap="round" stroke-dasharray="268.04 339.29" transform="rotate(-90 792 208)"/>
+    <text x="792" y="217" font-size="34" font-weight="800" fill="#e6ecf5" text-anchor="middle">79</text>
+    <text x="792" y="235" font-size="10" fill="#8b97ad" letter-spacing="1.5" text-anchor="middle">OF 100</text>
+  </g>
+  <!-- SEO 86 -->
+  <g>
+    <text x="948" y="120" font-size="12" fill="#8b97ad" letter-spacing="2" text-anchor="middle">SEO</text>
+    <circle cx="948" cy="208" r="54" fill="none" stroke="#24304a" stroke-width="16"/>
+    <circle cx="948" cy="208" r="54" fill="none" stroke="#4ade80" stroke-width="16" stroke-linecap="round" stroke-dasharray="291.79 339.29" transform="rotate(-90 948 208)"/>
+    <text x="948" y="217" font-size="34" font-weight="800" fill="#e6ecf5" text-anchor="middle">86</text>
+    <text x="948" y="235" font-size="10" fill="#8b97ad" letter-spacing="1.5" text-anchor="middle">OF 100</text>
+  </g>
+  <!-- GEO 68 -->
+  <g>
+    <text x="1104" y="120" font-size="12" fill="#8b97ad" letter-spacing="2" text-anchor="middle">GEO</text>
+    <circle cx="1104" cy="208" r="54" fill="none" stroke="#24304a" stroke-width="16"/>
+    <circle cx="1104" cy="208" r="54" fill="none" stroke="#facc15" stroke-width="16" stroke-linecap="round" stroke-dasharray="230.72 339.29" transform="rotate(-90 1104 208)"/>
+    <text x="1104" y="217" font-size="34" font-weight="800" fill="#e6ecf5" text-anchor="middle">68</text>
+    <text x="1104" y="235" font-size="10" fill="#8b97ad" letter-spacing="1.5" text-anchor="middle">OF 100</text>
+  </g>
+
+  <!-- pipeline caption under gauges -->
+  <text x="948" y="300" font-size="13" fill="#8b97ad" text-anchor="middle">sitemap discovery  &#8594;  polite crawl  &#8594;  deterministic + AI scoring  &#8594;  report</text>
+</svg>
