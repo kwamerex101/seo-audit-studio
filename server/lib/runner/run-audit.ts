@@ -427,7 +427,7 @@ function buildReport(args: {
     heading_hierarchy_clean: p.signals.heading_hierarchy_clean,
     images_total: p.signals.images_total,
     images_missing_alt: p.signals.images_missing_alt,
-    images_no_alt: p.signals.images_missing_alt,
+    images_no_alt: p.signals.images_no_alt,
     json_ld_types: p.signals.json_ld_types,
     canonical_present: p.signals.canonical_present,
     canonical_self_ref: p.signals.canonical_self_ref,
